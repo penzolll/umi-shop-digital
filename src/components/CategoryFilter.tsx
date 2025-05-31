@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 
 interface Category {
-  id: number;
+  id: string;
   name: string;
   slug: string;
 }
