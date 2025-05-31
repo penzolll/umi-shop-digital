@@ -42,22 +42,8 @@ const Home = () => {
         return result;
       }
     },
-    retry: 1, // Reduce retries to fail faster
-    retryDelay: 1000,
-    onError: (error) => {
-      console.error('Query error:', error);
-      if (error.code === 'ERR_NETWORK') {
-        setIsUsingMockData(true);
-      }
-    },
-    onSuccess: (data) => {
-      // Check if we got mock data (has specific mock product IDs)
-      if (data && data.length > 0 && data[0].id === '1') {
-        setIsUsingMockData(true);
-      } else {
-        setIsUsingMockData(false);
-      }
-    }
+    retry: 1,
+    retryDelay: 1000
   });
 
   // Fetch categories using React Query
@@ -68,30 +54,40 @@ const Home = () => {
     queryKey: ['categories'],
     queryFn: categoriesService.getCategories,
     retry: 1,
-    retryDelay: 1000,
-    onError: () => {
-      // Use fallback categories if API fails
-      return [
-        { id: 'makanan', name: 'Makanan', slug: 'makanan' },
-        { id: 'minuman', name: 'Minuman', slug: 'minuman' },
-        { id: 'snack', name: 'Snack', slug: 'snack' },
-        { id: 'bumbu-dapur', name: 'Bumbu Dapur', slug: 'bumbu-dapur' },
-        { id: 'kebutuhan-rumah', name: 'Kebutuhan Rumah', slug: 'kebutuhan-rumah' },
-        { id: 'produk-segar', name: 'Produk Segar', slug: 'produk-segar' }
-      ];
-    }
+    retryDelay: 1000
   });
 
-  // Show error toast only for non-network errors
+  // Handle error states and mock data detection
   useEffect(() => {
-    if (productsError && productsError.code !== 'ERR_NETWORK') {
-      toast({
-        title: "Error",
-        description: "Gagal memuat produk. Silakan coba lagi.",
-        variant: "destructive",
-      });
+    if (productsError) {
+      console.error('Query error:', productsError);
+      
+      // Check if it's a network error
+      const isNetworkError = productsError.message?.includes('Network Error') || 
+                            productsError.message?.includes('ERR_NETWORK') ||
+                            (productsError as any).code === 'ERR_NETWORK';
+      
+      if (isNetworkError) {
+        setIsUsingMockData(true);
+      } else {
+        // Show error toast only for non-network errors
+        toast({
+          title: "Error",
+          description: "Gagal memuat produk. Silakan coba lagi.",
+          variant: "destructive",
+        });
+      }
     }
   }, [productsError]);
+
+  // Check if we got mock data (has specific mock product IDs)
+  useEffect(() => {
+    if (products && products.length > 0 && products[0].id === '1') {
+      setIsUsingMockData(true);
+    } else if (products && products.length > 0) {
+      setIsUsingMockData(false);
+    }
+  }, [products]);
 
   // Transform categories for CategoryFilter component
   const categories: CategoryForFilter[] = [
