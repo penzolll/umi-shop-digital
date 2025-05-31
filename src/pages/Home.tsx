@@ -10,6 +10,8 @@ import { productsService } from '../services/products';
 import { categoriesService } from '../services/categories';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 interface CategoryForFilter {
   id: string;
@@ -19,6 +21,7 @@ interface CategoryForFilter {
 
 const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
 
   // Fetch products using React Query with error handling
   const { 
@@ -28,14 +31,33 @@ const Home = () => {
   } = useQuery({
     queryKey: ['products', selectedCategory],
     queryFn: async () => {
+      console.log('Fetching products for category:', selectedCategory);
       if (selectedCategory === 'all') {
-        return await productsService.getProducts();
+        const result = await productsService.getProducts();
+        console.log('Products fetched:', result);
+        return result;
       } else {
-        return await productsService.getProductsByCategory(selectedCategory);
+        const result = await productsService.getProductsByCategory(selectedCategory);
+        console.log('Products by category fetched:', result);
+        return result;
       }
     },
-    retry: 2,
+    retry: 1, // Reduce retries to fail faster
     retryDelay: 1000,
+    onError: (error) => {
+      console.error('Query error:', error);
+      if (error.code === 'ERR_NETWORK') {
+        setIsUsingMockData(true);
+      }
+    },
+    onSuccess: (data) => {
+      // Check if we got mock data (has specific mock product IDs)
+      if (data && data.length > 0 && data[0].id === '1') {
+        setIsUsingMockData(true);
+      } else {
+        setIsUsingMockData(false);
+      }
+    }
   });
 
   // Fetch categories using React Query
@@ -45,13 +67,24 @@ const Home = () => {
   } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesService.getCategories,
-    retry: 2,
+    retry: 1,
     retryDelay: 1000,
+    onError: () => {
+      // Use fallback categories if API fails
+      return [
+        { id: 'makanan', name: 'Makanan', slug: 'makanan' },
+        { id: 'minuman', name: 'Minuman', slug: 'minuman' },
+        { id: 'snack', name: 'Snack', slug: 'snack' },
+        { id: 'bumbu-dapur', name: 'Bumbu Dapur', slug: 'bumbu-dapur' },
+        { id: 'kebutuhan-rumah', name: 'Kebutuhan Rumah', slug: 'kebutuhan-rumah' },
+        { id: 'produk-segar', name: 'Produk Segar', slug: 'produk-segar' }
+      ];
+    }
   });
 
-  // Show error toast if products fail to load
+  // Show error toast only for non-network errors
   useEffect(() => {
-    if (productsError) {
+    if (productsError && productsError.code !== 'ERR_NETWORK') {
       toast({
         title: "Error",
         description: "Gagal memuat produk. Silakan coba lagi.",
@@ -113,6 +146,17 @@ const Home = () => {
       <HeroCarousel />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Show warning if using mock data */}
+        {isUsingMockData && (
+          <Alert className="mb-6 border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              Backend tidak dapat dijangkau. Menampilkan data contoh untuk demo. 
+              Silakan periksa koneksi backend di <code>jamblangcloud.online</code>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Browse by Category</h2>
           <CategoryFilter
