@@ -16,7 +16,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { register, user } = useAuth();
   const navigate = useNavigate();
 
   if (user) {
@@ -35,19 +35,27 @@ const Register = () => {
       return;
     }
 
+    if (password.length < 8) {
+      toast({
+        title: "Error",
+        description: "Password minimal 8 karakter",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // TODO: Implement register with API
-      console.log('Register:', { name, email, password });
+      await register(name, email, password);
       toast({
-        title: "Registration Successful",
-        description: "Akun berhasil dibuat! Silakan login.",
+        title: "Registrasi Berhasil",
+        description: "Akun berhasil dibuat! Selamat datang di UMI Store.",
       });
-      navigate('/login');
+      navigate('/');
     } catch (error: any) {
       toast({
-        title: "Registration Failed",
+        title: "Registrasi Gagal",
         description: error.response?.data?.message || "Gagal membuat akun",
         variant: "destructive",
       });
@@ -64,7 +72,7 @@ const Register = () => {
             <div className="mx-auto w-12 h-12 bg-gradient-to-r from-green-600 to-blue-600 rounded-lg flex items-center justify-center mb-4">
               <span className="text-white font-bold text-xl">U</span>
             </div>
-            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+            <CardTitle className="text-2xl font-bold">Buat Akun Baru</CardTitle>
             <CardDescription>
               Daftar akun baru di UMI Store
             </CardDescription>
@@ -101,8 +109,9 @@ const Register = () => {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Masukkan password"
+                    placeholder="Masukkan password (min. 8 karakter)"
                     required
+                    minLength={8}
                   />
                   <button
                     type="button"
@@ -125,7 +134,7 @@ const Register = () => {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? 'Membuat Akun...' : 'Buat Akun'}
               </Button>
             </form>
 
