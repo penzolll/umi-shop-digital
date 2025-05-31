@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cart: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -63,6 +98,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_order_items_order"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_order_items_product"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -81,36 +130,54 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          customer_name: string
+          discount: number
           id: string
           notes: string | null
           order_number: string
           payment_method: string
+          phone: string | null
           shipping_address: string
-          status: string
+          shipping_cost: number
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          tax: number
           total_amount: number
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          customer_name?: string
+          discount?: number
           id?: string
           notes?: string | null
           order_number: string
           payment_method: string
+          phone?: string | null
           shipping_address: string
-          status?: string
+          shipping_cost?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          tax?: number
           total_amount: number
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          customer_name?: string
+          discount?: number
           id?: string
           notes?: string | null
           order_number?: string
           payment_method?: string
+          phone?: string | null
           shipping_address?: string
-          status?: string
+          shipping_cost?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          tax?: number
           total_amount?: number
           updated_at?: string
           user_id?: string
@@ -122,12 +189,15 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          discount_percentage: number | null
+          featured: boolean | null
           id: string
           image_url: string | null
           is_active: boolean
           name: string
           original_price: number | null
           price: number
+          slug: string | null
           stock: number
           unit: string
           updated_at: string
@@ -136,12 +206,15 @@ export type Database = {
           category: string
           created_at?: string
           description?: string | null
+          discount_percentage?: number | null
+          featured?: boolean | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name: string
           original_price?: number | null
           price: number
+          slug?: string | null
           stock?: number
           unit?: string
           updated_at?: string
@@ -150,12 +223,15 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          discount_percentage?: number | null
+          featured?: boolean | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           name?: string
           original_price?: number | null
           price?: number
+          slug?: string | null
           stock?: number
           unit?: string
           updated_at?: string
@@ -232,9 +308,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "customer" | "admin"
+      order_status:
+        | "pending"
+        | "confirmed"
+        | "processing"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -351,6 +438,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["customer", "admin"],
+      order_status: [
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
     },
   },
 } as const

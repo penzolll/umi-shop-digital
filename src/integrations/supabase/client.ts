@@ -1,11 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { config } from '../../config/env';
 
-const SUPABASE_URL = "https://aiyevcdiinciusiqpinp.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpeWV2Y2RpaW5jaXVzaXFwaW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNTE1MjAsImV4cCI6MjA2MzgyNzUyMH0.vmiaFrJ87kR13X4-GrHKhgub8hAuVgdnlAFdRRQPoXw";
-
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(config.supabase.url, config.supabase.anonKey, {
   auth: {
     storage: localStorage,
     persistSession: true,

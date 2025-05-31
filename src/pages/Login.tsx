@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,7 +31,8 @@ const Login = () => {
         title: "Login Berhasil",
         description: "Selamat datang kembali di UMI Store!",
       });
-      navigate('/');
+      // Force page refresh for clean state
+      window.location.href = '/';
     } catch (error: any) {
       toast({
         title: "Login Gagal",
@@ -49,7 +49,6 @@ const Login = () => {
 
     try {
       await loginWithGoogle();
-      // Note: Navigation will happen automatically when auth state changes
       toast({
         title: "Login dengan Google",
         description: "Sedang mengarahkan ke Google...",

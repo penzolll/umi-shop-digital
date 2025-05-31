@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { api } from '../services/api';
+import { cleanupAuthState } from '../utils/authCleanup';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 interface User {
@@ -155,6 +156,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      // Clean up existing state first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+      }
+
       // Try Supabase auth first
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -180,6 +191,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (name: string, email: string, password: string) => {
     try {
+      // Clean up existing state first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+      }
+
       // Register with Supabase first
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -211,6 +232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     try {
+      // Clean up existing state first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -227,18 +258,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // Clear Laravel data
-      localStorage.removeItem('laravel_token');
-      localStorage.removeItem('user');
-      delete api.defaults.headers.common['Authorization'];
+      // Clean up auth state first
+      cleanupAuthState();
       
       // Sign out from Supabase
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Ignore errors
+      }
       
       dispatch({ type: 'LOGOUT' });
+      
+      // Force page refresh for clean state
+      window.location.href = '/login';
     } catch (error) {
       // Even if logout fails, clear local state
       dispatch({ type: 'LOGOUT' });
+      window.location.href = '/login';
     }
   };
 

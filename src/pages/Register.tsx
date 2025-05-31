@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,7 +52,8 @@ const Register = () => {
         title: "Registrasi Berhasil",
         description: "Akun berhasil dibuat! Selamat datang di UMI Store.",
       });
-      navigate('/');
+      // Force page refresh for clean state
+      window.location.href = '/';
     } catch (error: any) {
       toast({
         title: "Registrasi Gagal",
