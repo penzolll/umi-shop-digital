@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
+import { ordersService } from '../services/orders';
 
 const Checkout = () => {
   const { items, getTotalPrice, clearCart } = useCart();
@@ -44,33 +45,62 @@ const Checkout = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Anda harus login untuk melakukan checkout",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // TODO: Implement checkout API
-      console.log('Checkout:', {
-        items,
-        total: getTotalPrice(),
-        shipping: shippingInfo,
-        payment: paymentMethod
+      const fullAddress = `${shippingInfo.address}, ${shippingInfo.city} ${shippingInfo.postalCode}`;
+      const subtotal = getTotalPrice();
+      const shippingCost = 0; // Free shipping
+      const tax = 0;
+      const discount = 0;
+      const totalAmount = subtotal + shippingCost + tax - discount;
+
+      const orderItems = items.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.product.discount_percentage 
+          ? item.product.price * (1 - item.product.discount_percentage / 100)
+          : item.product.price
+      }));
+
+      await ordersService.createOrder({
+        customer_name: shippingInfo.name,
+        phone: shippingInfo.phone,
+        shipping_address: fullAddress,
+        payment_method: paymentMethod,
+        total_amount: totalAmount,
+        subtotal,
+        shipping_cost: shippingCost,
+        tax,
+        discount,
+        items: orderItems
       });
 
-      // Simulate API call
-      setTimeout(() => {
-        clearCart();
-        toast({
-          title: "Pesanan Berhasil",
-          description: "Pesanan Anda telah diterima dan sedang diproses",
-        });
-        navigate('/dashboard');
-        setIsLoading(false);
-      }, 2000);
+      clearCart();
+      
+      toast({
+        title: "Pesanan Berhasil",
+        description: "Pesanan Anda telah diterima dan sedang diproses",
+      });
+      
+      navigate('/dashboard');
     } catch (error) {
+      console.error('Checkout error:', error);
       toast({
         title: "Checkout Failed",
-        description: "Gagal memproses pesanan",
+        description: "Gagal memproses pesanan. Silakan coba lagi.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -180,24 +210,30 @@ const Checkout = () => {
             <CardContent className="space-y-4">
               {/* Order Items */}
               <div className="space-y-3">
-                {items.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center">
-                    <div className="flex items-center space-x-3">
-                      <img
-                        src={item.product.image}
-                        alt={item.product.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                      <div>
-                        <p className="font-medium text-sm">{item.product.name}</p>
-                        <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                {items.map((item) => {
+                  const price = item.product.discount_percentage 
+                    ? item.product.price * (1 - item.product.discount_percentage / 100)
+                    : item.product.price;
+                    
+                  return (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src={item.product.image_url || "https://images.unsplash.com/photo-1586201375761-83865001e544?w=400"}
+                          alt={item.product.name}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{item.product.name}</p>
+                          <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                        </div>
                       </div>
+                      <p className="font-medium">
+                        {formatPrice(price * item.quantity)}
+                      </p>
                     </div>
-                    <p className="font-medium">
-                      {formatPrice(item.product.price * item.quantity)}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="border-t pt-4 space-y-2">
