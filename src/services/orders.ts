@@ -41,6 +41,16 @@ export interface CreateOrderData {
   phone: string;
   shipping_address: string;
   payment_method: string;
+  total_amount: number;
+  subtotal: number;
+  shipping_cost: number;
+  tax: number;
+  discount: number;
+  items: {
+    product_id: string;
+    quantity: number;
+    price: number;
+  }[];
   notes?: string;
 }
 
