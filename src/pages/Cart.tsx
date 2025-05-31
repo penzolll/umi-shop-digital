@@ -49,17 +49,17 @@ const Cart = () => {
               <CardContent className="p-6">
                 <div className="flex items-center space-x-4">
                   <img
-                    src={item.image}
-                    alt={item.name}
+                    src={item.product.image}
+                    alt={item.product.name}
                     className="w-20 h-20 object-cover rounded-lg"
                   />
                   
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {item.name}
+                      {item.product.name}
                     </h3>
                     <p className="text-gray-600">
-                      {formatPrice(item.price)}
+                      {formatPrice(item.product.price)}
                     </p>
                   </div>
 
@@ -88,7 +88,7 @@ const Cart = () => {
 
                   <div className="text-right">
                     <p className="text-lg font-bold text-green-600">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPrice(item.product.price * item.quantity)}
                     </p>
                     <Button
                       variant="ghost"

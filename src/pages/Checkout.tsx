@@ -184,17 +184,17 @@ const Checkout = () => {
                   <div key={item.id} className="flex justify-between items-center">
                     <div className="flex items-center space-x-3">
                       <img
-                        src={item.image}
-                        alt={item.name}
+                        src={item.product.image}
+                        alt={item.product.name}
                         className="w-12 h-12 object-cover rounded"
                       />
                       <div>
-                        <p className="font-medium text-sm">{item.name}</p>
+                        <p className="font-medium text-sm">{item.product.name}</p>
                         <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                       </div>
                     </div>
                     <p className="font-medium">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPrice(item.product.price * item.quantity)}
                     </p>
                   </div>
                 ))}

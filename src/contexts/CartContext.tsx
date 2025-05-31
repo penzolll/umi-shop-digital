@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
@@ -29,6 +28,7 @@ interface CartContextType extends CartState {
   removeFromCart: (itemId: number) => Promise<void>;
   clearCart: () => void;
   fetchCart: () => Promise<void>;
+  getTotalPrice: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -79,6 +79,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const { user } = useAuth();
+
+  const getTotalPrice = () => {
+    return state.items.reduce((total, item) => total + (item.product.price * item.quantity), 0);
+  };
 
   const fetchCart = async () => {
     if (!user) return;
@@ -168,6 +172,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       removeFromCart,
       clearCart,
       fetchCart,
+      getTotalPrice,
     }}>
       {children}
     </CartContext.Provider>
