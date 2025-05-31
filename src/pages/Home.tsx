@@ -9,6 +9,7 @@ import HeroCarousel from '../components/HeroCarousel';
 import { productsService } from '../services/products';
 import { categoriesService } from '../services/categories';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from '@/hooks/use-toast';
 
 interface CategoryForFilter {
   id: string;
@@ -19,13 +20,22 @@ interface CategoryForFilter {
 const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Fetch products using React Query
+  // Fetch products using React Query with error handling
   const { 
     data: products = [], 
-    isLoading: productsLoading 
+    isLoading: productsLoading,
+    error: productsError 
   } = useQuery({
-    queryKey: ['products'],
-    queryFn: productsService.getProducts,
+    queryKey: ['products', selectedCategory],
+    queryFn: async () => {
+      if (selectedCategory === 'all') {
+        return await productsService.getProducts();
+      } else {
+        return await productsService.getProductsByCategory(selectedCategory);
+      }
+    },
+    retry: 2,
+    retryDelay: 1000,
   });
 
   // Fetch categories using React Query
@@ -35,7 +45,20 @@ const Home = () => {
   } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesService.getCategories,
+    retry: 2,
+    retryDelay: 1000,
   });
+
+  // Show error toast if products fail to load
+  useEffect(() => {
+    if (productsError) {
+      toast({
+        title: "Error",
+        description: "Gagal memuat produk. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    }
+  }, [productsError]);
 
   // Transform categories for CategoryFilter component
   const categories: CategoryForFilter[] = [
@@ -43,19 +66,12 @@ const Home = () => {
     ...categoriesData.map(cat => ({
       id: cat.id,
       name: cat.name,
-      slug: cat.name.toLowerCase()
+      slug: cat.slug
     }))
   ];
 
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
-    : products.filter(product => 
-        product.category.toLowerCase() === selectedCategory ||
-        categoriesData.find(cat => cat.id === selectedCategory)?.name.toLowerCase() === product.category.toLowerCase()
-      );
-
   // Transform products to match ProductCard interface
-  const transformedProducts = filteredProducts.map(product => ({
+  const transformedProducts = products.map(product => ({
     id: parseInt(product.id),
     name: product.name,
     price: product.price,
@@ -118,7 +134,18 @@ const Home = () => {
 
           {transformedProducts.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">Tidak ada produk tersedia</p>
+              <p className="text-gray-500 text-lg">
+                {productsError ? 'Terjadi kesalahan saat memuat produk' : 'Tidak ada produk tersedia'}
+              </p>
+              {productsError && (
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-4"
+                  variant="outline"
+                >
+                  Muat Ulang
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

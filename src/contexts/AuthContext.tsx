@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import { api } from '../services/api';
+import { apiHelpers } from '../services/api';
 import { cleanupAuthState } from '../utils/authCleanup';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
@@ -78,170 +78,128 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
-    // Set up Supabase auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Supabase auth event:', event, session?.user?.email);
-        
-        dispatch({ 
-          type: 'SET_SUPABASE_SESSION', 
-          payload: { user: session?.user ?? null, session } 
-        });
+    initializeAuth();
+  }, []);
 
-        if (session?.user && event === 'SIGNED_IN') {
-          // Defer Laravel sync to prevent deadlocks
-          setTimeout(() => {
-            syncWithLaravel(session.user);
-          }, 0);
+  const initializeAuth = async () => {
+    try {
+      // Check for existing Laravel token first
+      const token = localStorage.getItem('laravel_token');
+      const userData = localStorage.getItem('user');
+      
+      if (token && userData) {
+        try {
+          const user = JSON.parse(userData);
+          dispatch({ type: 'SET_USER', payload: { user, token } });
+          
+          // Verify token is still valid
+          await apiHelpers.getProfile();
+        } catch (error) {
+          console.error('Invalid stored token, clearing:', error);
+          localStorage.removeItem('laravel_token');
+          localStorage.removeItem('user');
         }
       }
-    );
+      
+      // Set up Supabase auth state listener for Google OAuth
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Supabase auth event:', event, session?.user?.email);
+          
+          dispatch({ 
+            type: 'SET_SUPABASE_SESSION', 
+            payload: { user: session?.user ?? null, session } 
+          });
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user && event === 'SIGNED_IN') {
+            // Sync with Laravel backend for Google OAuth
+            setTimeout(() => {
+              syncWithLaravel(session.user);
+            }, 0);
+          }
+        }
+      );
+
+      // Check for existing Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
       dispatch({ 
         type: 'SET_SUPABASE_SESSION', 
         payload: { user: session?.user ?? null, session } 
       });
       
-      if (session?.user) {
-        syncWithLaravel(session.user);
-      } else {
-        // Check for existing Laravel token
-        const token = localStorage.getItem('laravel_token');
-        const userData = localStorage.getItem('user');
-        
-        if (token && userData) {
-          try {
-            const user = JSON.parse(userData);
-            dispatch({ type: 'SET_USER', payload: { user, token } });
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          } catch (error) {
-            localStorage.removeItem('laravel_token');
-            localStorage.removeItem('user');
-          }
-        }
-        dispatch({ type: 'SET_LOADING', payload: false });
+      if (session?.user && !token) {
+        await syncWithLaravel(session.user);
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
 
   const syncWithLaravel = async (supabaseUser: SupabaseUser) => {
     try {
       console.log('Syncing with Laravel backend...');
       
-      // Send Supabase user data to Laravel backend
-      const response = await api.post('/auth/supabase-sync', {
-        supabase_id: supabaseUser.id,
-        email: supabaseUser.email,
-        name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0],
-        avatar_url: supabaseUser.user_metadata?.avatar_url
-      });
+      // For now, we'll primarily use Laravel backend authentication
+      // This sync is mainly for Google OAuth integration
+      const response = await apiHelpers.login(
+        supabaseUser.email!,
+        'google_oauth_temp_password'
+      );
 
-      const { user, token } = response.data;
+      const { user, token } = response;
       
       localStorage.setItem('laravel_token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       dispatch({ type: 'SET_USER', payload: { user, token } });
     } catch (error) {
       console.error('Failed to sync with Laravel:', error);
-      // Continue with Supabase-only auth if Laravel sync fails
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
-      // Clean up existing state first
       cleanupAuthState();
       
-      // Attempt global sign out
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        // Continue even if this fails
-      }
-
-      // Try Supabase auth first
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        // Fallback to Laravel direct login
-        const response = await api.post('/login', { email, password });
-        const { user, token } = response.data;
-        
-        localStorage.setItem('laravel_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        dispatch({ type: 'SET_USER', payload: { user, token } });
-      }
-      // If Supabase login successful, syncWithLaravel will be called automatically
+      // Use Laravel backend for primary authentication
+      const response = await apiHelpers.login(email, password);
+      const { user, token } = response;
+      
+      localStorage.setItem('laravel_token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      dispatch({ type: 'SET_USER', payload: { user, token } });
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
     try {
-      // Clean up existing state first
       cleanupAuthState();
       
-      // Attempt global sign out
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        // Continue even if this fails
-      }
-
-      // Register with Supabase first
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-          },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) {
-        // Fallback to Laravel direct registration
-        const response = await api.post('/register', { name, email, password });
-        const { user, token } = response.data;
-        
-        localStorage.setItem('laravel_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        dispatch({ type: 'SET_USER', payload: { user, token } });
-      }
-      // If Supabase registration successful, syncWithLaravel will be called automatically
+      // Use Laravel backend for primary registration
+      const response = await apiHelpers.register(name, email, password);
+      const { user, token } = response;
+      
+      localStorage.setItem('laravel_token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      dispatch({ type: 'SET_USER', payload: { user, token } });
     } catch (error) {
+      console.error('Registration error:', error);
       throw error;
     }
   };
 
   const loginWithGoogle = async () => {
     try {
-      // Clean up existing state first
       cleanupAuthState();
       
-      // Attempt global sign out
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {
-        // Continue even if this fails
-      }
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -250,30 +208,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) throw error;
-      // syncWithLaravel will be called automatically when auth state changes
     } catch (error) {
+      console.error('Google login error:', error);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
-      // Clean up auth state first
-      cleanupAuthState();
+      // Logout from Laravel backend
+      await apiHelpers.logout();
       
       // Sign out from Supabase
       try {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {
-        // Ignore errors
+        console.error('Supabase logout error:', err);
       }
       
+      cleanupAuthState();
       dispatch({ type: 'LOGOUT' });
       
-      // Force page refresh for clean state
+      // Redirect to login
       window.location.href = '/login';
     } catch (error) {
-      // Even if logout fails, clear local state
+      console.error('Logout error:', error);
+      // Force cleanup even if logout fails
+      cleanupAuthState();
       dispatch({ type: 'LOGOUT' });
       window.location.href = '/login';
     }

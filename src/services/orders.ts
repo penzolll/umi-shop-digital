@@ -1,249 +1,133 @@
 
-import { supabase } from '../integrations/supabase/client';
-import { api } from './api';
+import { apiHelpers } from './api';
 
 export interface OrderItem {
   id: string;
+  order_id: string;
   product_id: string;
   quantity: number;
   price: number;
   product: {
     id: string;
     name: string;
-    image_url: string | null;
+    image_url: string;
   };
+  created_at: string;
 }
 
 export interface Order {
   id: string;
   order_number: string;
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  user_id: string;
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   total_amount: number;
   subtotal: number;
-  shipping_cost: number;
   tax: number;
+  shipping_cost: number;
   discount: number;
   payment_method: string;
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   customer_name: string;
-  phone: string | null;
+  phone: string;
   shipping_address: string;
-  notes: string | null;
-  created_at: string;
+  notes?: string;
   order_items: OrderItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOrderData {
+  customer_name: string;
+  phone: string;
+  shipping_address: string;
+  payment_method: string;
+  notes?: string;
 }
 
 export const ordersService = {
-  // Create new order
-  async createOrder(orderRequest: {
-    customer_name: string;
-    phone: string;
-    shipping_address: string;
-    payment_method: string;
-    total_amount: number;
-    subtotal: number;
-    shipping_cost?: number;
-    tax?: number;
-    discount?: number;
-    notes?: string;
-    items: Array<{
-      product_id: string;
-      quantity: number;
-      price: number;
-    }>;
-  }): Promise<Order> {
+  // Create new order (checkout)
+  createOrder: async (orderData: CreateOrderData): Promise<Order> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Create order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          customer_name: orderRequest.customer_name,
-          phone: orderRequest.phone,
-          shipping_address: orderRequest.shipping_address,
-          payment_method: orderRequest.payment_method,
-          total_amount: orderRequest.total_amount,
-          subtotal: orderRequest.subtotal,
-          shipping_cost: orderRequest.shipping_cost || 0,
-          tax: orderRequest.tax || 0,
-          discount: orderRequest.discount || 0,
-          notes: orderRequest.notes,
-          order_number: `UMI-${Date.now()}` // Will be replaced by trigger
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = orderRequest.items.map(item => ({
-        order_id: orderData.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // Clear cart after successful order
-      await supabase
-        .from('cart')
-        .delete()
-        .eq('user_id', user.id);
-
-      // Fetch the complete order with items
-      return await this.getOrderById(orderData.id);
+      const response = await apiHelpers.createOrder(orderData);
+      return response.data || response;
     } catch (error) {
       console.error('Error creating order:', error);
       throw error;
     }
   },
 
-  // Get single order by ID
-  async getOrderById(orderId: string): Promise<Order> {
+  // Get user's orders
+  getUserOrders: async (): Promise<Order[]> => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            products!order_items_product_id_fkey (
-              id,
-              name,
-              image_url
-            )
-          )
-        `)
-        .eq('id', orderId)
-        .single();
+      const response = await apiHelpers.getUserOrders();
+      return response.data || response;
+    } catch (error) {
+      console.error('Error fetching user orders:', error);
+      throw error;
+    }
+  },
 
-      if (error) throw error;
-
-      // Transform the data to match our interface
-      const transformedOrder: Order = {
-        ...data,
-        order_items: data.order_items?.map((item: any) => ({
-          ...item,
-          product: item.products
-        })) || []
-      };
-
-      return transformedOrder;
+  // Get single order
+  getOrder: async (id: string): Promise<Order> => {
+    try {
+      const response = await apiHelpers.getOrder(id);
+      return response.data || response;
     } catch (error) {
       console.error('Error fetching order:', error);
       throw error;
     }
   },
 
-  // Get user orders
-  async getUserOrders(): Promise<Order[]> {
+  // Admin: Get all orders
+  getAllOrders: async (): Promise<Order[]> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            products!order_items_product_id_fkey (
-              id,
-              name,
-              image_url
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Transform the data to match our interface
-      const transformedOrders: Order[] = (data || []).map((order: any) => ({
-        ...order,
-        order_items: order.order_items?.map((item: any) => ({
-          ...item,
-          product: item.products
-        })) || []
-      }));
-
-      return transformedOrders;
-    } catch (error) {
-      console.error('Error fetching user orders:', error);
-      // Fallback to Laravel API
-      try {
-        const response = await api.get('/user/orders');
-        return response.data;
-      } catch (apiError) {
-        console.error('Error fetching orders from API:', apiError);
-        return [];
-      }
-    }
-  },
-
-  // Get all orders (admin)
-  async getAllOrders(): Promise<Order[]> {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            products!order_items_product_id_fkey (
-              id,
-              name,
-              image_url
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Transform the data to match our interface
-      const transformedOrders: Order[] = (data || []).map((order: any) => ({
-        ...order,
-        order_items: order.order_items?.map((item: any) => ({
-          ...item,
-          product: item.products
-        })) || []
-      }));
-
-      return transformedOrders;
+      const response = await apiHelpers.admin.getOrders();
+      return response.data || response;
     } catch (error) {
       console.error('Error fetching all orders:', error);
-      // Fallback to Laravel API
-      try {
-        const response = await api.get('/admin/orders');
-        return response.data;
-      } catch (apiError) {
-        console.error('Error fetching admin orders from API:', apiError);
-        return [];
-      }
+      throw error;
     }
   },
 
-  // Update order status (admin)
-  async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
+  // Admin: Update order status
+  updateOrderStatus: async (id: string, status: Order['status']): Promise<Order> => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId);
-
-      if (error) throw error;
+      const response = await apiHelpers.admin.updateOrderStatus(id, status);
+      return response.data || response;
     } catch (error) {
       console.error('Error updating order status:', error);
       throw error;
     }
+  },
+
+  // Get order status options
+  getOrderStatuses: () => Order['status'][] => {
+    return ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+  },
+
+  // Get payment status options
+  getPaymentStatuses: () => Order['payment_status'][] => {
+    return ['pending', 'paid', 'failed', 'refunded'];
+  },
+
+  // Format order total
+  formatOrderTotal: (order: Order): string => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(order.total_amount);
+  },
+
+  // Get order status color
+  getOrderStatusColor: (status: Order['status']): string => {
+    const colors = {
+      pending: 'text-yellow-600 bg-yellow-100',
+      processing: 'text-blue-600 bg-blue-100',
+      shipped: 'text-purple-600 bg-purple-100',
+      delivered: 'text-green-600 bg-green-100',
+      cancelled: 'text-red-600 bg-red-100',
+    };
+    return colors[status] || 'text-gray-600 bg-gray-100';
   }
 };

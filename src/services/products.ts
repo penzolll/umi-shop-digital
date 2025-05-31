@@ -1,99 +1,97 @@
 
-import { supabase } from '../integrations/supabase/client';
-import { api } from './api';
+import { apiHelpers } from './api';
 
 export interface Product {
   id: string;
   name: string;
   price: number;
-  image_url: string | null;
-  category: string;
+  image_url: string;
   stock: number;
-  description: string | null;
-  is_active: boolean;
-  featured: boolean | null;
-  discount_percentage: number | null;
-  original_price: number | null;
+  discount_percentage: number;
   unit: string;
+  description?: string;
+  category: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const productsService = {
-  // Get all products from Supabase
-  async getProducts(): Promise<Product[]> {
+  // Get all products with optional filtering
+  getProducts: async (params?: {
+    category?: string;
+    search?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<Product[]> => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      const response = await apiHelpers.getProducts(params);
+      return response.data || response; // Handle different response formats
     } catch (error) {
-      console.error('Error fetching products from Supabase:', error);
-      // Fallback to Laravel API
-      try {
-        const response = await api.get('/products');
-        return response.data;
-      } catch (apiError) {
-        console.error('Error fetching products from API:', apiError);
-        return [];
-      }
+      console.error('Error fetching products:', error);
+      throw error;
     }
   },
 
   // Get single product by ID
-  async getProduct(id: string): Promise<Product | null> {
+  getProduct: async (id: string): Promise<Product> => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', id)
-        .eq('is_active', true)
-        .single();
-
-      if (error) throw error;
-      return data;
+      const response = await apiHelpers.getProduct(id);
+      return response.data || response;
     } catch (error) {
       console.error('Error fetching product:', error);
-      return null;
+      throw error;
     }
   },
 
-  // Get featured products
-  async getFeaturedProducts(): Promise<Product[]> {
+  // Admin: Create new product
+  createProduct: async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product> => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .eq('featured', true)
-        .order('created_at', { ascending: false })
-        .limit(8);
-
-      if (error) throw error;
-      return data || [];
+      const response = await apiHelpers.admin.createProduct(productData);
+      return response.data || response;
     } catch (error) {
-      console.error('Error fetching featured products:', error);
-      return [];
+      console.error('Error creating product:', error);
+      throw error;
+    }
+  },
+
+  // Admin: Update product
+  updateProduct: async (id: string, productData: Partial<Product>): Promise<Product> => {
+    try {
+      const response = await apiHelpers.admin.updateProduct(id, productData);
+      return response.data || response;
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  },
+
+  // Admin: Delete product
+  deleteProduct: async (id: string): Promise<void> => {
+    try {
+      await apiHelpers.admin.deleteProduct(id);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
+  },
+
+  // Search products
+  searchProducts: async (query: string): Promise<Product[]> => {
+    try {
+      return await productsService.getProducts({ search: query });
+    } catch (error) {
+      console.error('Error searching products:', error);
+      throw error;
     }
   },
 
   // Get products by category
-  async getProductsByCategory(category: string): Promise<Product[]> {
+  getProductsByCategory: async (category: string): Promise<Product[]> => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .eq('category', category)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
+      return await productsService.getProducts({ category });
     } catch (error) {
       console.error('Error fetching products by category:', error);
-      return [];
+      throw error;
     }
   }
 };
