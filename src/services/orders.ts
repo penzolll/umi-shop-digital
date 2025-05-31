@@ -101,12 +101,12 @@ export const ordersService = {
   },
 
   // Get order status options
-  getOrderStatuses: () => Order['status'][] => {
+  getOrderStatuses: (): Order['status'][] => {
     return ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
   },
 
   // Get payment status options
-  getPaymentStatuses: () => Order['payment_status'][] => {
+  getPaymentStatuses: (): Order['payment_status'][] => {
     return ['pending', 'paid', 'failed', 'refunded'];
   },
 
