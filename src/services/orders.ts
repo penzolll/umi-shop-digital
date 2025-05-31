@@ -34,7 +34,7 @@ export interface Order {
 
 export const ordersService = {
   // Create new order
-  async createOrder(orderData: {
+  async createOrder(orderRequest: {
     customer_name: string;
     phone: string;
     shipping_address: string;
@@ -60,16 +60,16 @@ export const ordersService = {
         .from('orders')
         .insert({
           user_id: user.id,
-          customer_name: orderData.customer_name,
-          phone: orderData.phone,
-          shipping_address: orderData.shipping_address,
-          payment_method: orderData.payment_method,
-          total_amount: orderData.total_amount,
-          subtotal: orderData.subtotal,
-          shipping_cost: orderData.shipping_cost || 0,
-          tax: orderData.tax || 0,
-          discount: orderData.discount || 0,
-          notes: orderData.notes,
+          customer_name: orderRequest.customer_name,
+          phone: orderRequest.phone,
+          shipping_address: orderRequest.shipping_address,
+          payment_method: orderRequest.payment_method,
+          total_amount: orderRequest.total_amount,
+          subtotal: orderRequest.subtotal,
+          shipping_cost: orderRequest.shipping_cost || 0,
+          tax: orderRequest.tax || 0,
+          discount: orderRequest.discount || 0,
+          notes: orderRequest.notes,
           order_number: `UMI-${Date.now()}` // Will be replaced by trigger
         })
         .select()
@@ -78,7 +78,7 @@ export const ordersService = {
       if (orderError) throw orderError;
 
       // Create order items
-      const orderItems = orderData.items.map(item => ({
+      const orderItems = orderRequest.items.map(item => ({
         order_id: orderData.id,
         product_id: item.product_id,
         quantity: item.quantity,
@@ -97,9 +97,47 @@ export const ordersService = {
         .delete()
         .eq('user_id', user.id);
 
-      return orderData as Order;
+      // Fetch the complete order with items
+      return await this.getOrderById(orderData.id);
     } catch (error) {
       console.error('Error creating order:', error);
+      throw error;
+    }
+  },
+
+  // Get single order by ID
+  async getOrderById(orderId: string): Promise<Order> {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            products!order_items_product_id_fkey (
+              id,
+              name,
+              image_url
+            )
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+
+      // Transform the data to match our interface
+      const transformedOrder: Order = {
+        ...data,
+        order_items: data.order_items?.map((item: any) => ({
+          ...item,
+          product: item.products
+        })) || []
+      };
+
+      return transformedOrder;
+    } catch (error) {
+      console.error('Error fetching order:', error);
       throw error;
     }
   },
@@ -116,7 +154,7 @@ export const ordersService = {
           *,
           order_items (
             *,
-            product:products (
+            products!order_items_product_id_fkey (
               id,
               name,
               image_url
@@ -128,7 +166,16 @@ export const ordersService = {
 
       if (error) throw error;
 
-      return data as Order[];
+      // Transform the data to match our interface
+      const transformedOrders: Order[] = (data || []).map((order: any) => ({
+        ...order,
+        order_items: order.order_items?.map((item: any) => ({
+          ...item,
+          product: item.products
+        })) || []
+      }));
+
+      return transformedOrders;
     } catch (error) {
       console.error('Error fetching user orders:', error);
       // Fallback to Laravel API
@@ -151,7 +198,7 @@ export const ordersService = {
           *,
           order_items (
             *,
-            product:products (
+            products!order_items_product_id_fkey (
               id,
               name,
               image_url
@@ -162,7 +209,16 @@ export const ordersService = {
 
       if (error) throw error;
 
-      return data as Order[];
+      // Transform the data to match our interface
+      const transformedOrders: Order[] = (data || []).map((order: any) => ({
+        ...order,
+        order_items: order.order_items?.map((item: any) => ({
+          ...item,
+          product: item.products
+        })) || []
+      }));
+
+      return transformedOrders;
     } catch (error) {
       console.error('Error fetching all orders:', error);
       // Fallback to Laravel API

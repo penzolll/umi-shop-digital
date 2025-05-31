@@ -49,7 +49,7 @@ const Cart = () => {
               <CardContent className="p-6">
                 <div className="flex items-center space-x-4">
                   <img
-                    src={item.product.image}
+                    src={item.product.image_url || "https://images.unsplash.com/photo-1586201375761-83865001e544?w=400"}
                     alt={item.product.name}
                     className="w-20 h-20 object-cover rounded-lg"
                   />

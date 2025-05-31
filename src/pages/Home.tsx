@@ -10,6 +10,12 @@ import { productsService } from '../services/products';
 import { categoriesService } from '../services/categories';
 import { Skeleton } from '@/components/ui/skeleton';
 
+interface CategoryForFilter {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -32,7 +38,7 @@ const Home = () => {
   });
 
   // Transform categories for CategoryFilter component
-  const categories = [
+  const categories: CategoryForFilter[] = [
     { id: 'all', name: 'Semua', slug: 'all' },
     ...categoriesData.map(cat => ({
       id: cat.id,
@@ -47,6 +53,17 @@ const Home = () => {
         product.category.toLowerCase() === selectedCategory ||
         categoriesData.find(cat => cat.id === selectedCategory)?.name.toLowerCase() === product.category.toLowerCase()
       );
+
+  // Transform products to match ProductCard interface
+  const transformedProducts = filteredProducts.map(product => ({
+    id: parseInt(product.id),
+    name: product.name,
+    price: product.price,
+    image: product.image_url || "https://images.unsplash.com/photo-1586201375761-83865001e544?w=400",
+    category: product.category,
+    stock: product.stock,
+    description: product.description || 'Tidak ada deskripsi tersedia'
+  }));
 
   if (productsLoading || categoriesLoading) {
     return (
@@ -99,13 +116,13 @@ const Home = () => {
             </Link>
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {transformedProducts.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg">Tidak ada produk tersedia</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.slice(0, 8).map((product) => (
+              {transformedProducts.slice(0, 8).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
