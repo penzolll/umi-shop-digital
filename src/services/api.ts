@@ -113,6 +113,43 @@ export const apiHelpers = {
     const response = await api.get(`/products/${id}`);
     return response.data;
   },
+
+  // Cart operations
+  getCart: async () => {
+    const response = await api.get('/cart');
+    return response.data;
+  },
+
+  addToCart: async (productId: number, quantity: number) => {
+    const response = await api.post('/cart', { product_id: productId, quantity });
+    return response.data;
+  },
+
+  updateCartItem: async (cartItemId: string, quantity: number) => {
+    const response = await api.put(`/cart/${cartItemId}`, { quantity });
+    return response.data;
+  },
+
+  removeFromCart: async (cartItemId: string) => {
+    const response = await api.delete(`/cart/${cartItemId}`);
+    return response.data;
+  },
+
+  // Order operations
+  createOrder: async (orderData: any) => {
+    const response = await api.post('/orders', orderData);
+    return response.data;
+  },
+
+  getUserOrders: async () => {
+    const response = await api.get('/user/orders');
+    return response.data;
+  },
+
+  getOrder: async (orderId: string) => {
+    const response = await api.get(`/user/orders/${orderId}`);
+    return response.data;
+  },
   
   // Admin endpoints
   admin: {
@@ -171,6 +208,17 @@ export const apiHelpers = {
     
     deleteProduct: async (id: string) => {
       const response = await api.delete(`/products/${id}`);
+      return response.data;
+    },
+
+    // Admin order management
+    getOrders: async () => {
+      const response = await api.get('/admin/orders');
+      return response.data;
+    },
+
+    updateOrderStatus: async (orderId: string, status: string) => {
+      const response = await api.put(`/admin/orders/${orderId}`, { status });
       return response.data;
     },
   }
