@@ -32,7 +32,7 @@ export const cartService = {
   // Add item to cart
   addToCart: async (productId: string, quantity: number = 1): Promise<CartItem> => {
     try {
-      const response = await apiHelpers.addToCart(productId, quantity);
+      const response = await apiHelpers.addToCart(parseInt(productId), quantity);
       return response.data || response;
     } catch (error) {
       console.error('Error adding to cart:', error);
