@@ -209,6 +209,11 @@ server {
 }
 EOF
 
+# Enable the site configuration
+print_status "Enabling site configuration..."
+ln -sf /etc/nginx/sites-available/jamblangcloud.online /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+
 # Test Nginx configuration
 print_status "Testing Nginx configuration..."
 nginx -t
@@ -274,7 +279,3 @@ echo "curl -X GET https://jamblangcloud.online/api/products"
 echo ""
 echo "🔐 Certificate will auto-renew every 90 days"
 echo "================================================"
-
-EOF
-
-chmod +x laravel-backend/setup-https.sh
