@@ -6,17 +6,21 @@ export const api = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeout,
   headers: {
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Add request interceptor to include token
+// Add request interceptor to include token and handle form data
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('laravel_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Don't set Content-Type for FormData (browser will set it with boundary)
+    if (!(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
     }
     
     // Add CSRF token if available (for Laravel)
@@ -110,62 +114,58 @@ export const apiHelpers = {
     return response.data;
   },
   
-  // Cart
-  getCart: async () => {
-    const response = await api.get('/cart');
-    return response.data;
-  },
-  
-  addToCart: async (productId: string, quantity: number = 1) => {
-    const response = await api.post('/cart', { product_id: productId, quantity });
-    return response.data;
-  },
-  
-  updateCartItem: async (id: string, quantity: number) => {
-    const response = await api.put(`/cart/${id}`, { quantity });
-    return response.data;
-  },
-  
-  removeFromCart: async (id: string) => {
-    const response = await api.delete(`/cart/${id}`);
-    return response.data;
-  },
-  
-  // Orders
-  createOrder: async (orderData: any) => {
-    const response = await api.post('/order', orderData);
-    return response.data;
-  },
-  
-  getUserOrders: async () => {
-    const response = await api.get('/user/orders');
-    return response.data;
-  },
-  
-  getOrder: async (id: string) => {
-    const response = await api.get(`/user/orders/${id}`);
-    return response.data;
-  },
-  
   // Admin endpoints
   admin: {
-    getOrders: async () => {
-      const response = await api.get('/admin/orders');
-      return response.data;
-    },
-    
-    updateOrderStatus: async (id: string, status: string) => {
-      const response = await api.put(`/admin/orders/${id}`, { status });
-      return response.data;
-    },
-    
+    // Product management with image upload support
     createProduct: async (productData: any) => {
+      // Handle both JSON and FormData
       const response = await api.post('/products', productData);
+      return response.data;
+    },
+    
+    createProductWithImage: async (productData: any, imageFile?: File) => {
+      const formData = new FormData();
+      
+      // Add all product data to FormData
+      Object.keys(productData).forEach(key => {
+        if (productData[key] !== null && productData[key] !== undefined) {
+          formData.append(key, productData[key]);
+        }
+      });
+      
+      // Add image file if provided
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+      
+      const response = await api.post('/products', formData);
       return response.data;
     },
     
     updateProduct: async (id: string, productData: any) => {
       const response = await api.put(`/products/${id}`, productData);
+      return response.data;
+    },
+    
+    updateProductWithImage: async (id: string, productData: any, imageFile?: File) => {
+      const formData = new FormData();
+      
+      // Add all product data to FormData
+      Object.keys(productData).forEach(key => {
+        if (productData[key] !== null && productData[key] !== undefined) {
+          formData.append(key, productData[key]);
+        }
+      });
+      
+      // Add image file if provided
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+      
+      // Laravel doesn't support PUT with FormData, use POST with _method
+      formData.append('_method', 'PUT');
+      
+      const response = await api.post(`/products/${id}`, formData);
       return response.data;
     },
     
